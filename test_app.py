@@ -9,6 +9,8 @@ import gzip
 import hashlib
 import re
 import runpy
+import subprocess
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from flask import Flask
@@ -57,35 +59,124 @@ def test_app_routes():
         return False
 
 def test_sample_data():
-    """Test that sample data is initialized"""
+    """Test that non-blog sample resources are still initialized."""
     try:
-        from app import blog_posts, resources
-        
-        if len(blog_posts) > 0:
-            print("✓ Sample blog posts loaded")
-        else:
-            print("✗ No blog posts found")
-            
-        if len(resources) > 0:
-            print("✓ Sample resources loaded")
-        else:
-            print("✗ No resources found")
-            
+        from app import resources
+        assert len(resources) > 0
+        print("✓ Sample resources loaded")
         return True
             
     except Exception as e:
         print(f"✗ Sample data test failed: {e}")
         return False
 
+def test_markdown_posts():
+    """Load validated top-level markdown files, sorted deterministically."""
+    try:
+        import app
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            assert app.load_posts(folder / 'missing') == []
+            assert app.load_posts(folder) == []
+            valid = {
+                'old': 'title: Old\ndate: 2025-01-01',
+                'z-new': 'title: New Z\ndate: "2026-10-20"\nsummary: New summary',
+                'a-new': 'title: New A\ndate: 2026-10-20',
+            }
+            for slug, metadata in valid.items():
+                (folder / f'{slug}.md').write_text(
+                    f'---\n{metadata}\n---\n# Hello\n\n**Markdown** body.\n',
+                    encoding='utf-8',
+                )
+            for filename in ('ignored.txt', 'ignored.MD'):
+                (folder / filename).write_text('Not a post', encoding='utf-8')
+            (folder / 'nested').mkdir()
+            (folder / 'nested' / 'hidden.md').write_text(
+                '---\ntitle: Hidden\ndate: 2026-10-20\n---\nBody', encoding='utf-8',
+            )
+            (folder / 'link.md').symlink_to(folder / 'old.md')
+            posts = app.load_posts(folder)
+            assert [p['slug'] for p in posts] == ['a-new', 'z-new', 'old']
+            assert posts[0]['date'] == '2026-10-20'
+            assert posts[0]['summary'] == ''
+            assert posts[1]['summary'] == 'New summary'
+            assert '<h1>Hello</h1>' in posts[0]['content']
+            assert '<strong>Markdown</strong>' in posts[0]['content']
+            invalid = [
+                'No front matter',
+                '---\ntitle: Unclosed',
+                '---\n- a list\n---\nBody',
+                '---\n---\nBody',
+                '---\ntitle: Missing date\n---\nBody',
+                '---\ndate: 2026-10-20\n---\nBody',
+                '---\ntitle: " "\ndate: 2026-10-20\n---',
+                '---\ntitle: 123\ndate: 2026-10-20\n---',
+                '---\ntitle: Bad date\ndate: 2026-02-30\n---',
+                '---\ntitle: Bad date\ndate: "2026-1-01"\n---',
+                '---\ntitle: Bad date\ndate: 20261020\n---',
+                '---\ntitle: Bad summary\ndate: 2026-10-20\nsummary: []\n---',
+                '---\ntitle: [broken YAML\n---',
+                '---\ntitle: !!python/object:builtins.object {}\n---',
+            ]
+            for i, content in enumerate(invalid):
+                (folder / f'invalid-{i}.md').write_text(content, encoding='utf-8')
+            (folder / 'bad-encoding.md').write_bytes(b'\xff')
+            with patch.object(app.app.logger, 'warning') as warning:
+                assert app.load_posts(folder) == posts
+                assert warning.call_count == len(invalid) + 1
+        print("✓ Markdown validation, rendering, filtering, and sorting work")
+        return True
+    except Exception as e:
+        print(f"✗ Markdown loading test failed: {e}")
+        return False
+
+def test_post_routes():
+    """Listing/detail use disk content, including new files without restart."""
+    try:
+        import app
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict(app.app.config, POSTS_DIR=directory), \
+                app.app.test_client() as client:
+            response = client.get('/')
+            assert response.status_code == 200
+            assert b'No blog posts available.' in response.data
+            assert client.get('/?page=2').status_code == 404
+            assert client.get('/post/missing').status_code == 404
+            assert client.get('/post/1').status_code == 404
+            path = Path(directory) / 'first-post.md'
+            path.write_text(
+                '---\ntitle: My first post\ndate: 2026-10-20\n'
+                'summary: A short introduction\n---\n# Welcome\n\n**Hello**!',
+                encoding='utf-8',
+            )
+            html = client.get('/').get_data(as_text=True)
+            assert 'href="/post/first-post"' in html
+            assert 'My first post' in html and 'A short introduction' in html
+            response = client.get('/post/first-post')
+            assert response.status_code == 200
+            assert b'<h1>Welcome</h1>' in response.data
+            assert b'<strong>Hello</strong>' in response.data
+            path.unlink()
+            assert client.get('/post/first-post').status_code == 404
+            assert b'No blog posts available.' in client.get('/').data
+        print("✓ File-based listing, slug detail, empty state, and live discovery work")
+        return True
+    except Exception as e:
+        print(f"✗ Post route test failed: {e}")
+        return False
+
 def test_pagination():
     """Test page boundaries, navigation, and invalid page parameters."""
     try:
         import app
-        posts = [
-            {'id': i, 'title': f'Post {i}', 'date': '2026-10-20', 'summary': 'Summary'}
-            for i in range(1, 22)
-        ]
-        with patch.object(app, 'blog_posts', posts), app.app.test_client() as client:
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict(app.app.config, POSTS_DIR=directory), \
+                app.app.test_client() as client:
+            for i in range(1, 22):
+                (Path(directory) / f'post-{i:02}.md').write_text(
+                    f'---\ntitle: Post {i}\ndate: 2026-10-20\nsummary: Summary\n---\nBody',
+                    encoding='utf-8',
+                )
             for page, count in ((1, 10), (2, 10), (3, 1)):
                 response = client.get(f'/?page={page}')
                 html = response.get_data(as_text=True)
@@ -103,8 +194,9 @@ def test_pagination():
                 assert client.get(f'/?page={page}').data == client.get('/').data
             assert client.get('/?page=4').status_code == 404
             assert client.get('/?page=999999').status_code == 404
+            posts = app.load_posts()
         for count in (0, 10, 11, 20):
-            with patch.object(app, 'blog_posts', posts[:count]), app.app.test_client() as client:
+            with patch.object(app, 'load_posts', return_value=posts[:count]), app.app.test_client() as client:
                 response = client.get('/')
                 assert response.status_code == 200
                 assert response.get_data(as_text=True).count('<article class="blog-post">') == min(count, 10)
@@ -164,12 +256,14 @@ def test_compression_and_environment():
             environment = {
                 'DEBUG': str(enabled), 'COMPRESS_ENABLED': str(enabled),
                 'HOST': '127.0.0.2', 'PORT': '5050',
+                'POSTS_DIR': '/tmp/mynpub-test-posts',
             }
             with patch.dict(os.environ, environment), patch.object(Flask, 'run') as run:
                 namespace = runpy.run_path(str(Path(__file__).with_name('app.py')), run_name='__main__')
                 configured_app = namespace['app']
                 assert configured_app.debug == enabled
                 assert configured_app.config['COMPRESS_ENABLED'] == enabled
+                assert configured_app.config['POSTS_DIR'] == '/tmp/mynpub-test-posts'
                 run.assert_called_once_with(host='127.0.0.2', port=5050)
                 with configured_app.test_client() as client:
                     response = client.get('/', headers={'Accept-Encoding': 'gzip'})
@@ -177,10 +271,12 @@ def test_compression_and_environment():
         with patch.dict(os.environ):
             os.environ.pop('DEBUG', None)
             os.environ.pop('COMPRESS_ENABLED', None)
+            os.environ.pop('POSTS_DIR', None)
             with patch.object(Flask, 'run') as run:
                 namespace = runpy.run_path(str(Path(__file__).with_name('app.py')))
                 assert not namespace['app'].debug
                 assert namespace['app'].config['COMPRESS_ENABLED']
+                assert namespace['app'].config['POSTS_DIR'] == str(Path(__file__).parent / 'content' / 'posts')
                 run.assert_not_called()
         print("✓ Compression and environment configuration work")
         return True
@@ -189,29 +285,73 @@ def test_compression_and_environment():
         return False
 
 def test_add_post_form():
-    """Test the previously missing GET form and existing submission path."""
+    """The unauthenticated legacy publishing endpoint must stay disabled."""
     try:
         import app
-        with patch.object(app, 'blog_posts', []), app.app.test_client() as client:
-            response = client.get('/admin/add-post')
-            assert response.status_code == 200
-            html = response.get_data(as_text=True)
-            assert 'method="post" action="/admin/add-post"' in html
-            for field in ('title', 'date', 'content'):
-                assert f'name="{field}"' in html
-                assert f'for="{field}"' in html
-            assert 'type="submit"' in html
+        with app.app.test_client() as client:
+            assert client.get('/admin/add-post').status_code == 404
             response = client.post('/admin/add-post', data={
                 'title': 'New post', 'date': '2026-10-20', 'content': 'Post content',
             })
-            assert response.status_code == 200
-            assert b'Blog post added successfully!' in response.data
-            assert b'New post' in client.get('/').data
-            assert client.get('/post/1').status_code == 200
-        print("✓ Add-post form and submission render correctly")
+            assert response.status_code == 404
+        print("✓ Legacy admin publishing is disabled")
         return True
     except Exception as e:
         print(f"✗ Add-post form test failed: {e}")
+        return False
+
+def test_publish_script():
+    """Inspect rsync arguments without contacting a server."""
+    try:
+        script = Path(__file__).parent / 'scripts' / 'publish_posts.sh'
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            source = folder / 'local:posts with spaces'
+            source.mkdir()
+            arguments = folder / 'arguments'
+            fake_rsync = folder / 'rsync'
+            fake_rsync.write_text(
+                '#!/bin/sh\nprintf "%s\\0" "$@" > "$RSYNC_ARGS_FILE"\n'
+                'exit "${RSYNC_EXIT_CODE:-0}"\n', encoding='utf-8',
+            )
+            fake_rsync.chmod(0o755)
+            environment = {
+                'PATH': f'{folder}:{os.defpath}',
+                'RSYNC_ARGS_FILE': str(arguments),
+            }
+            def run(*args, **env):
+                return subprocess.run(
+                    ['bash', str(script), *args], env={**environment, **env},
+                    capture_output=True, text=True,
+                )
+            assert run('--help').returncode == 0
+            assert not arguments.exists()
+            for args in ((), ('--unknown',), ('--source',), ('--host', '--dry-run'),
+                         ('--host', '-unsafe'), ('--host', 'user@host', '--remote-dir', 'relative'),
+                         ('--host', 'user@host', '--source', str(folder / 'missing'))):
+                assert run(*args).returncode != 0
+                assert not arguments.exists()
+            result = run('--source', str(source), '--host', 'writer@100.100.100.100',
+                         '--remote-dir', '/srv/posts with spaces', '--ssh', 'ssh -p 2222', '--dry-run')
+            assert result.returncode == 0, result.stderr
+            args = arguments.read_bytes().decode().rstrip('\0').split('\0')
+            assert args == [
+                '-rt', '--verbose', '--ignore-existing', '--protect-args',
+                '--exclude=*/', '--include=*.md', '--exclude=*',
+                '--rsh=ssh -p 2222', '--dry-run', '--',
+                f'{source}/', 'writer@100.100.100.100:/srv/posts with spaces/',
+            ]
+            result = run(POSTS_SOURCE=str(source), POSTS_HOST='writer@server',
+                         POSTS_REMOTE_DIR='/srv/posts/', POSTS_SSH='ssh')
+            assert result.returncode == 0, result.stderr
+            args = arguments.read_bytes().decode().rstrip('\0').split('\0')
+            assert '--dry-run' not in args
+            assert args[-1] == 'writer@server:/srv/posts/'
+            assert run('--host', 'writer@server', RSYNC_EXIT_CODE='23').returncode == 23
+        print("✓ Publishing arguments, add-only filters, dry-run, and errors work")
+        return True
+    except Exception as e:
+        print(f"✗ Publish script test failed: {e}")
         return False
 
 if __name__ == '__main__':
@@ -225,6 +365,10 @@ if __name__ == '__main__':
     print()
     success &= test_sample_data()
     print()
+    success &= test_markdown_posts()
+    print()
+    success &= test_post_routes()
+    print()
     success &= test_pagination()
     print()
     success &= test_static_caching()
@@ -232,6 +376,8 @@ if __name__ == '__main__':
     success &= test_compression_and_environment()
     print()
     success &= test_add_post_form()
+    print()
+    success &= test_publish_script()
     print()
     
     if success:
