@@ -15,4 +15,15 @@
         <p>No blog posts available.</p>
     {% endif %}
 </div>
+{% if pagination.pages > 1 %}
+<nav class="pagination" aria-label="Blog pagination">
+    {% if pagination.has_prev %}
+        <a href="{{ url_for('home', page=pagination.page - 1) }}" rel="prev">Previous</a>
+    {% endif %}
+    <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+    {% if pagination.has_next %}
+        <a href="{{ url_for('home', page=pagination.page + 1) }}" rel="next">Next</a>
+    {% endif %}
+</nav>
+{% endif %}
 {% endblock %}

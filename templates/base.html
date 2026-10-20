@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ config.title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=static_version) }}">
 </head>
 <body>
     <div class="container">
@@ -15,7 +15,7 @@
 
         <!-- Display npub at the top of the page, centered -->
         <div class="npub-display">
-            <p style="text-align: center;"><strong>My Npub:</strong> npub160p54cklw4a56js5fypkxjchp69mqllzlds4jnvzyvmrge5909uqf6dnlt</p>
+            <p class="npub-text"><strong>My Npub:</strong> npub160p54cklw4a56js5fypkxjchp69mqllzlds4jnvzyvmrge5909uqf6dnlt</p>
         </div>
 
         <header>
