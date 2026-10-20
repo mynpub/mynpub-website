@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="lightning-explorer">
+    <h2>Lightning Network Explorer</h2>
+    <p>This page provides access to my Lightning network node.</p>
+    
+    <div class="explorer-info">
+        <h3>Node Information</h3>
+        <p>Connected to: <strong>Your Node Name</strong></p>
+        <p>Public Key: <code>...</code></p>
+        <p>Network: <strong>Mainnet</strong></p>
+    </div>
+    
+    <div class="explorer-features">
+        <h3>Features</h3>
+        <ul>
+            <li>Real-time transaction monitoring</li>
+            <li>Channel status information</li>
+            <li>Node performance metrics</li>
+            <li>Payment routing capabilities</li>
+        </ul>
+    </div>
+    
+    <div class="node-status">
+        <h3>Node Status</h3>
+        <p>Status: <span class="status-online">Online</span></p>
+        <p>Uptime: 99.8%</p>
+        <p>Channels: <strong>24</strong></p>
+    </div>
+</div>
+{% endblock %}

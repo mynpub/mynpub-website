@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="blog-feed">
+    <h2>Latest Posts</h2>
+    {% if posts %}
+        {% for post in posts %}
+            <article class="blog-post">
+                <h3><a href="{{ url_for('post', post_id=post.id) }}">{{ post.title }}</a></h3>
+                <p class="post-date">{{ post.date }}</p>
+                <p class="post-summary">{{ post.summary }}</p>
+            </article>
+        {% endfor %}
+    {% else %}
+        <p>No blog posts available.</p>
+    {% endif %}
+</div>
+{% endblock %}

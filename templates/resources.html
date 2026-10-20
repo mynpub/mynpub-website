@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="resources-page">
+    <h2>Helpful Resources</h2>
+    
+    {% if resources %}
+        <div class="resources-list">
+            {% for resource in resources %}
+                <div class="resource-item">
+                    <h3><a href="{{ resource.url }}" target="_blank">{{ resource.title }}</a></h3>
+                    <p>{{ resource.description }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No resources available yet.</p>
+    {% endif %}
+    
+    <div class="add-resource">
+        <h3>Add a Resource</h3>
+        <p>Help me build this resources section by suggesting useful links!</p>
+        <p>You can contact me via the mailing list if you have suggestions.</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,382 @@
+/* Modern styling for the personal website */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 25px;
+    background-color: white;
+    min-height: 100vh;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    border-radius: 10px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+header {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 25px;
+    margin-bottom: 35px;
+    text-align: center;
+}
+
+header h1 {
+    color: #2c3e50;
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    letter-spacing: -0.5px;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 25px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: #3498db;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    padding: 10px 15px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+nav ul li a:hover {
+    color: white;
+    background-color: #3498db;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+main {
+    min-height: 65vh;
+}
+
+/* Blog styling */
+.blog-feed {
+    margin-bottom: 45px;
+}
+
+.blog-post {
+    padding: 25px 0;
+    border-bottom: 1px solid #eee;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+.blog-post:hover {
+    background-color: #f9fbfd;
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.blog-post h3 {
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-size: 1.5rem;
+}
+
+.blog-post h3 a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.3s ease;
+}
+
+.blog-post h3 a:hover {
+    color: #3498db;
+}
+
+.post-date {
+    color: #7f8c8d;
+    font-size: 0.95em;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+.post-summary {
+    color: #555;
+    line-height: 1.7;
+}
+
+/* Single post styling */
+.blog-post-single {
+    margin-bottom: 35px;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.post-date {
+    color: #7f8c8d;
+    font-size: 0.95em;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+.post-content {
+    line-height: 1.9;
+    font-size: 1.05rem;
+}
+
+/* Mailing list styling */
+.mailing-list-form {
+    max-width: 600px;
+    margin: 30px auto;
+    padding: 30px;
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    border: 1px solid #e9ecef;
+}
+
+.mailing-list-form div {
+    margin-bottom: 20px;
+}
+
+.mailing-list-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.mailing-list-form input[type="email"] {
+    width: 100%;
+    padding: 14px 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+    background-color: white;
+}
+
+.mailing-list-form input[type="email"]:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.mailing-list-form button {
+    background: linear-gradient(135deg, #3498db 0%, #2c77b9 100%);
+    color: white;
+    padding: 14px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.mailing-list-form button:hover {
+    background: linear-gradient(135deg, #2c77b9 0%, #256ca5 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(52, 152, 219, 0.4);
+}
+
+/* Lightning explorer styling */
+.lightning-explorer {
+    margin-bottom: 45px;
+    padding: 25px;
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    border: 1px solid #e9ecef;
+}
+
+.explorer-info, .explorer-features, .node-status {
+    background-color: white;
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+
+.status-online {
+    color: #27ae60;
+    font-weight: bold;
+    background-color: #e8f5e9;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+/* Resources styling */
+.resources-page {
+    margin-bottom: 45px;
+    padding: 20px;
+}
+
+.resources-list {
+    margin-bottom: 35px;
+}
+
+.resource-item {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.resource-item:hover {
+    background-color: #f8fcff;
+    transform: translateX(5px);
+}
+
+.resource-item h3 a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.resource-item h3 a:hover {
+    color: #2c77b9;
+    text-decoration: underline;
+}
+
+.resource-item p {
+    color: #555;
+    line-height: 1.6;
+    margin-top: 8px;
+}
+
+/* Message styling */
+.message {
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 500;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+
+.message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Footer styling */
+footer {
+    margin-top: 45px;
+    padding-top: 25px;
+    border-top: 1px solid #eee;
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 0.95em;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    nav ul {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .mailing-list-form {
+        padding: 20px;
+    }
+    
+    .explorer-info, .explorer-features, .node-status {
+        padding: 20px;
+    }
+    
+    .blog-post {
+        padding: 20px 15px;
+    }
+}
+
+/* Adsense header styling */
+.adsense-header {
+    margin-bottom: 25px;
+    text-align: center;
+    min-height: 80px;
+    background-color: #f0f0f0;
+    border: 1px dashed #ccc;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Highlight for blog post titles */
+.blog-post h3 {
+    position: relative;
+}
+
+.blog-post h3::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 50px;
+    height: 3px;
+    background-color: #3498db;
+    border-radius: 2px;
+}
+
+/* Enhanced button hover effects */
+button {
+    outline: none;
+}
+
+button:focus {
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+/* Improved typography */
+h1, h2, h3, h4, h5, h6 {
+    margin-bottom: 15px;
+    line-height: 1.3;
+    color: #2c3e50;
+}
+
+p {
+    margin-bottom: 15px;
+}
+
+a {
+    transition: color 0.2s ease;
+}
