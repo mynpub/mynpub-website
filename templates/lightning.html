@@ -1,32 +1,54 @@
 {% extends "base.html" %}
+{% from "lightning_tables.html" import node_link, channel_table, pagination_links %}
 
 {% block content %}
 <div class="lightning-explorer">
-    <h2>Lightning Network Explorer</h2>
-    <p>This page provides access to my Lightning network node.</p>
-    
-    <div class="explorer-info">
-        <h3>Node Information</h3>
-        <p>Connected to: <strong>Your Node Name</strong></p>
-        <p>Public Key: <code>...</code></p>
-        <p>Network: <strong>Mainnet</strong></p>
-    </div>
-    
-    <div class="explorer-features">
-        <h3>Features</h3>
-        <ul>
-            <li>Real-time transaction monitoring</li>
-            <li>Channel status information</li>
-            <li>Node performance metrics</li>
-            <li>Payment routing capabilities</li>
-        </ul>
-    </div>
-    
-    <div class="node-status">
-        <h3>Node Status</h3>
-        <p>Status: <span class="status-online">Online</span></p>
-        <p>Uptime: 99.8%</p>
-        <p>Channels: <strong>24</strong></p>
-    </div>
+    <h2><a href="{{ url_for('lightning_explorer') }}">Lightning Network Explorer</a></h2>
+    <p>Public, read-only network gossip observed by this server's Core Lightning node. Not a complete or real-time view of every channel; private channels are excluded.</p>
+    {% if state.status == 'stale' %}
+    <p class="message error" role="status">Degraded: Core Lightning is unavailable or returned invalid data. Showing the last successful snapshot; data is stale.</p>
+    {% elif state.status == 'refreshing' %}
+    <p class="message error" role="status">Graph refresh in progress. {{ 'Showing the previous snapshot, which may be stale.' if state.snapshot is not none else 'Please try again shortly.' }}</p>
+    {% elif state.status == 'unavailable' %}
+    <p class="message error" role="status">Lightning network data is temporarily unavailable. Please try again shortly.</p>
+    {% else %}
+    <p class="status-online">Cached graph available</p>
+    {% endif %}
+    <p>Last updated (snapshot): <strong>{{ state.snapshot.updated_at if state.snapshot is not none else 'Not yet available' }}</strong></p>
+    {% block explorer_content %}
+    <section class="explorer-info">
+        <h3>Global network overview</h3>
+        {% if state.snapshot is not none %}
+        <dl class="network-stats">
+            <div><dt>Total nodes</dt><dd>{{ state.snapshot.nodes | length }}</dd></div>
+            <div><dt>Total channels</dt><dd>{{ state.snapshot.channels | length }}</dd></div>
+            <div><dt>Total network capacity</dt><dd>{{ state.snapshot.capacity }} sat ({{ "%.8f" | format(state.snapshot.capacity / 100000000) }} BTC)</dd></div>
+        </dl>
+        {% if state.snapshot.unknown_capacity %}<p>Capacity is a lower bound: {{ state.snapshot.unknown_capacity }} channels have unknown capacity.</p>{% endif %}
+        {% else %}
+        <p>Network totals are not yet available.</p>
+        {% endif %}
+    </section>
+    <form class="explorer-search" method="get" action="{{ url_for('lightning_explorer') }}">
+        <label for="lightning-query">Search by node pubkey, alias, or short channel ID</label>
+        <input id="lightning-query" name="q" type="search" maxlength="128" value="{{ query }}" placeholder="Alias, 02… / 03…, or 123456x789x0">
+        <button type="submit">Search</button>
+    </form>
+    <p><a href="{{ url_for('lightning_explorer', kind='nodes', per_page=pagination.per_page) }}">Browse nodes</a> · <a href="{{ url_for('lightning_explorer', kind='channels', per_page=pagination.per_page) }}">Browse channels</a></p>
+    {% if state.snapshot is not none %}
+    <h3>{{ 'Search results' if query else ('Nodes' if kind == 'nodes' else 'Channels') }} ({{ pagination.total }})</h3>
+    {% if kind == 'nodes' %}
+    <div class="explorer-table"><table>
+        <thead><tr><th>Alias / public key</th><th>Channels</th><th>Last announcement (UTC)</th></tr></thead>
+        <tbody>{% for node in rows %}
+            <tr><td>{{ node_link(node.pubkey, state.snapshot) }}</td><td>{{ state.snapshot.node_channels[node.pubkey] | length }}</td><td>{{ node.last_update or 'Unknown' }}</td></tr>
+        {% else %}<tr><td colspan="3">No matching nodes.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    {{ channel_table(rows, state.snapshot) }}
+    {% endif %}
+    {{ pagination_links(pagination, 'lightning_explorer', q=query, kind=kind) }}
+    {% endif %}
+    {% endblock %}
 </div>
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask, abort, render_template, request
+from flask import Flask, abort, redirect, render_template, request, url_for
 from datetime import date
 import hashlib
 import markdown
@@ -6,8 +6,14 @@ import os
 from pathlib import Path
 import re
 import yaml
+from lightning import LightningGraph, PUBKEY, valid_scid
 
 app = Flask(__name__)
+lightning_graph = LightningGraph(
+    executable=os.getenv('CLN_CLI', 'lightning-cli'),
+    lightning_dir=os.getenv('CLN_LIGHTNING_DIR'),
+    network=os.getenv('CLN_NETWORK', 'bitcoin'),
+)
 app.config.update(
     DEBUG=os.getenv('DEBUG', 'false').lower() in ('1', 'true', 'yes', 'on'),
     COMPRESS_ENABLED=os.getenv('COMPRESS_ENABLED', 'true').lower() in ('1', 'true', 'yes', 'on'),
@@ -145,9 +151,74 @@ def post(slug):
 
 @app.route('/lightning-explorer')
 def lightning_explorer():
-    # Here you would integrate with your actual Lightning node
-    # For now, we'll show a placeholder page
-    return render_template('lightning.html', config=SITE_CONFIG)
+    query = request.args.get('q', '').strip()
+    kind = request.args.get('kind', 'nodes')
+    if len(query) > 128 or any(ord(char) < 32 for char in query) or kind not in ('nodes', 'channels'):
+        abort(400)
+    page, per_page = lightning_page_args()
+    if PUBKEY.fullmatch(query):
+        return redirect(url_for('lightning_node', pubkey=query.lower()))
+    if valid_scid(query):
+        return redirect(url_for('lightning_channel', short_channel_id=query))
+    state = lightning_graph.get()
+    rows = []
+    if state.snapshot is not None:
+        rows = list(state.snapshot[kind].values())
+        if query:
+            rows = [node for node in state.snapshot['nodes'].values()
+                    if query.casefold() in node['alias'].casefold()]
+            kind = 'nodes'
+    rows, pagination = lightning_paginate(rows, page, per_page, state.snapshot is not None)
+    return render_template('lightning.html', config=SITE_CONFIG, state=state,
+                           query=query, kind=kind, rows=rows, pagination=pagination)
+
+
+def lightning_page_args():
+    values = []
+    for name, default, maximum in (('page', '1', 1000000000), ('per_page', '50', 100)):
+        value = request.args.get(name, default)
+        if not re.fullmatch(r'[0-9]{1,10}', value) or not 1 <= int(value) <= maximum:
+            abort(400)
+        values.append(int(value))
+    return values
+
+
+def lightning_paginate(rows, page, per_page, available=True):
+    pages = max(1, (len(rows) + per_page - 1) // per_page)
+    if available and page > pages:
+        abort(404)
+    start = (page - 1) * per_page
+    return rows[start:start + per_page], {
+        'page': page, 'pages': pages, 'total': len(rows), 'per_page': per_page,
+    }
+
+
+@app.route('/lightning-explorer/node/<pubkey>')
+def lightning_node(pubkey):
+    if not PUBKEY.fullmatch(pubkey):
+        abort(400)
+    pubkey = pubkey.lower()
+    page, per_page = lightning_page_args()
+    state = lightning_graph.get()
+    node, rows = None, []
+    if state.snapshot is not None:
+        node = state.snapshot['nodes'].get(pubkey)
+        rows = state.snapshot['node_channels'].get(pubkey, [])
+    rows, pagination = lightning_paginate(rows, page, per_page, state.snapshot is not None)
+    return render_template('lightning_node.html', config=SITE_CONFIG, state=state,
+                           node=node, rows=rows, pagination=pagination), (
+                               404 if state.snapshot is not None and node is None else 200)
+
+
+@app.route('/lightning-explorer/channel/<short_channel_id>')
+def lightning_channel(short_channel_id):
+    if not valid_scid(short_channel_id):
+        abort(400)
+    state = lightning_graph.get()
+    channel = state.snapshot['channels'].get(short_channel_id) if state.snapshot is not None else None
+    return render_template('lightning_channel.html', config=SITE_CONFIG, state=state,
+                           channel=channel), (
+                               404 if state.snapshot is not None and channel is None else 200)
 
 @app.route('/resources')
 def resources_page():

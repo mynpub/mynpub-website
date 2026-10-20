@@ -6,7 +6,7 @@ This is a Flask-based personal website with the following features:
 
 1. **Blog Section** - Main landing page showing latest blog posts with individual post pages
 2. **Mailing List Signup** - GNU Mailman integration for collecting email subscribers
-3. **Lightning Network Explorer** - Page for accessing your Lightning node information
+3. **Lightning Network Explorer** - Public, read-only network graph from server-local Core Lightning
 4. **Resources Section** - Collection of helpful links and resources
 
 ## Structure
@@ -75,6 +75,73 @@ blocked at the reverse proxy and unused in production.
 ```bash
 python test_app.py
 ```
+
+### Lightning Network Explorer
+
+`/lightning-explorer` shows network-wide node/channel counts, capacity in sat/BTC,
+and the last successful snapshot time (UTC). Browse nodes or channels; search by
+case-insensitive alias substring, full compressed node pubkey, or short channel
+ID (`blockxtxxout`, for example `800000x123x0`). Exact IDs redirect to
+`/lightning-explorer/node/<pubkey>` or
+`/lightning-explorer/channel/<short_channel_id>`. Node pages show advertised
+addresses, announcement time, and channels; channel pages show endpoints,
+capacity, and directional base fee (msat), fee rate (ppm), and CLTV delta.
+Missing metadata is labeled unknown. All lists use server-side pagination:
+`?page=2&per_page=50` (default 50, allowed 1–100); invalid parameters return 400,
+out-of-range pages return 404. Search terms are limited to 128 characters and
+rendered with HTML escaping.
+
+This is the **public gossip graph known to this node**, not an authoritative
+global census, payment history, or local wallet dashboard. Directions are
+deduplicated by short channel ID for totals; explicitly private channels are
+excluded. Gossip may be incomplete while CLN syncs. “Last updated” is the
+website snapshot time, not proof of current channel liveness; individual
+announcement/policy times are shown separately.
+
+Install Core Lightning's `lightning-cli` on the website server and configure:
+
+| Environment variable | Default | Meaning |
+| --- | --- | --- |
+| `CLN_CLI` | `lightning-cli` | Executable path, e.g. `/usr/local/bin/lightning-cli` (no shell arguments) |
+| `CLN_LIGHTNING_DIR` | CLI default for service user | Absolute CLN data directory containing the network RPC socket |
+| `CLN_NETWORK` | `bitcoin` | CLN network, e.g. `bitcoin`, `testnet`, or `regtest` |
+
+Set these in the website's service environment and restart its workers.
+They are trusted operator settings, never URL parameters. The website user
+needs access to the configured **local Unix RPC socket** and traversal of its
+parent directories. Do not run the website as root, make `/root` traversable,
+or make the RPC socket world-accessible to work around permission errors.
+For a node currently using `/root/.lightning`, arrange a dedicated service
+account/data directory or a local method-filtering Unix-socket proxy before
+deployment. A raw CLN socket grants broader capabilities than this explorer
+uses: for least privilege, restrict the website's local proxy to
+`listnodes` and `listchannels`. Keep wallet files inaccessible to the website.
+No remote RPC listener, browser credential, firewall opening, or wallet
+mutation endpoint is needed or added. Only those two fixed read methods are
+called; neither browser input nor search terms reach RPC.
+
+`lightning.py` caches one complete graph snapshot **per worker** for 45 seconds,
+refreshing lazily on the first request after expiry. Each CLI call has a
+10-second timeout (at most two calls per refresh). A nonblocking lock prevents
+concurrent refresh storms: other requests immediately see the previous
+snapshot or a “refresh in progress” message. Failed refreshes back off for
+45 seconds and retain the last good snapshot, clearly marked stale with its
+original timestamp. With no snapshot, all explorer pages render a friendly
+unavailable state rather than a 500; CLI stderr and local paths are not shown.
+Snapshots are memory-only, disappear on restart, and may differ briefly
+between Gunicorn workers. Budget memory for the gossip graph per worker;
+use a modest worker count and a WSGI/proxy timeout above the two-call refresh
+budget. No historical graph storage or background scheduler is required.
+If capacity is missing on a channel, totals explicitly indicate a lower bound.
+
+Run `python test_lightning.py` for focused mock-RPC parsing, cache/concurrency,
+search/escaping, pagination, and outage checks. These are also included in
+`python test_app.py`. No live node is required for tests. Before production,
+verify `listnodes` and `listchannels` as the actual website service account
+using the same directory/network settings, then check overview and both
+detail pages. If `lightningd` is unhealthy (including a PID-lock conflict),
+repair the node service separately; the website does not start, stop, or
+otherwise manage it.
 
 ## Adding New Pages
 

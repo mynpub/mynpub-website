@@ -1,0 +1,18 @@
+{% extends "lightning.html" %}
+{% from "lightning_tables.html" import node_link, policies %}
+
+{% block explorer_content %}
+{% if channel %}
+<section class="explorer-info">
+    <h3>Channel: {{ channel.scid }}</h3>
+    <p>Short channel ID: <code>{{ channel.scid }}</code></p>
+    <p>Capacity: {{ channel.capacity if channel.capacity is not none else 'Unknown' }} sat</p>
+    <h4>Endpoint nodes</h4>
+    {% for key in channel.endpoints %}<p>{{ node_link(key, state.snapshot) }}</p>{% endfor %}
+    <h4>Directional fee policies</h4>
+    {{ policies(channel, state.snapshot) }}
+</section>
+{% elif state.snapshot is not none %}
+<p>Channel not found in the current graph snapshot.</p>
+{% endif %}
+{% endblock %}
