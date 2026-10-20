@@ -1,13 +1,17 @@
 from flask import Flask, abort, render_template, request
+from datetime import date
 import hashlib
 import markdown
 import os
 from pathlib import Path
+import re
+import yaml
 
 app = Flask(__name__)
 app.config.update(
     DEBUG=os.getenv('DEBUG', 'false').lower() in ('1', 'true', 'yes', 'on'),
     COMPRESS_ENABLED=os.getenv('COMPRESS_ENABLED', 'true').lower() in ('1', 'true', 'yes', 'on'),
+    POSTS_DIR=os.getenv('POSTS_DIR', str(Path(__file__).parent / 'content' / 'posts')),
 )
 
 if app.config['COMPRESS_ENABLED']:
@@ -46,36 +50,51 @@ SITE_CONFIG = {
     'adsense_code': '<!-- Google AdSense code would go here -->'
 }
 
-# Simple in-memory storage for blog posts, mailing list subscribers, and resources
-blog_posts = []
+# Simple in-memory storage for mailing list subscribers and resources
 mailing_list_subscribers = []
 resources = []
 
+def load_posts(posts_dir=None):
+    posts = []
+    for path in sorted(Path(posts_dir if posts_dir is not None else app.config['POSTS_DIR']).glob('*.md')):
+        if not path.is_file() or path.is_symlink():
+            continue
+        try:
+            lines = path.read_text(encoding='utf-8').splitlines()
+            if not lines or lines[0] != '---':
+                raise ValueError('missing opening front matter delimiter')
+            end = lines.index('---', 1)
+            metadata = yaml.safe_load('\n'.join(lines[1:end]))
+            if not isinstance(metadata, dict):
+                raise ValueError('front matter must be a mapping')
+            title = metadata.get('title')
+            post_date = metadata.get('date')
+            summary = metadata.get('summary', '')
+            if not isinstance(title, str) or not title.strip():
+                raise ValueError('title must be a nonempty string')
+            if type(post_date) is date:
+                post_date = post_date.isoformat()
+            if not isinstance(post_date, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', post_date):
+                raise ValueError('date must use YYYY-MM-DD')
+            date.fromisoformat(post_date)
+            if not isinstance(summary, str):
+                raise ValueError('summary must be a string')
+            posts.append({
+                'slug': path.stem,
+                'title': title,
+                'date': post_date,
+                'summary': summary,
+                'content': render_markdown('\n'.join(lines[end + 1:])),
+            })
+        except (OSError, UnicodeError, ValueError, yaml.YAMLError) as error:
+            app.logger.warning('Skipping invalid post %s: %s', path, error)
+    posts.sort(key=lambda post: post['slug'])
+    posts.sort(key=lambda post: post['date'], reverse=True)
+    return posts
+
 def init_sample_data():
-    global blog_posts, resources
+    global resources
 
-    # Sample blog posts - this includes the initial markdown content
-    blog_posts = [
-        {
-            'id': 1,
-            'title': 'Welcome to My Personal Website',
-            'date': '2026-10-19',
-            'summary': 'This is my first post explaining the purpose of this website.',
-            'content': '# Welcome\n\nThis is a **personal website** featuring:\n\n- A blog with technical content\n- Mailing list signup\n- Lightning network explorer\n- Helpful resources\n\nStay tuned for updates!'
-        },
-        {
-            'id': 2,
-            'title': 'Introduction to Flask Web Development',
-            'date': '2026-10-18',
-            'summary': 'Exploring the power of Python Flask for web development.',
-            'content': '# Flask Web Development\n\nFlask is a powerful Python microframework that makes it easy to build web applications.\n\n## Key Features\n\n- Simple routing system\n- Template engine support\n- Easy database integration\n- Extensible with extensions'
-        }
-    ]
-
-    # Process all markdown content for blog posts at startup
-    for post in blog_posts:
-        post['content'] = render_markdown(post['content'])
-    
     # Sample resources
     resources = [
         {
@@ -96,6 +115,7 @@ init_sample_data()
 # Routes
 @app.route('/')
 def home():
+    blog_posts = load_posts()
     per_page = 10
     page = max(1, request.args.get('page', 1, type=int))
     total = len(blog_posts)
@@ -115,9 +135,9 @@ def home():
                          },
                          config=SITE_CONFIG)
 
-@app.route('/post/<int:post_id>')
-def post(post_id):
-    post = next((p for p in blog_posts if p['id'] == post_id), None)
+@app.route('/post/<slug>')
+def post(slug):
+    post = next((p for p in load_posts() if p['slug'] == slug), None)
     if post:
         return render_template('post.html', post=post, config=SITE_CONFIG)
     else:
@@ -133,28 +153,10 @@ def lightning_explorer():
 def resources_page():
     return render_template('resources.html', resources=resources, config=SITE_CONFIG)
 
-# Additional route for adding new blog posts (admin functionality)
+# Publishing is file-based; the unauthenticated admin endpoint is disabled.
 @app.route('/admin/add-post', methods=['GET', 'POST'])
 def add_post():
-    if request.method == 'POST':
-        title = request.form.get('title')
-        content = request.form.get('content')
-        date = request.form.get('date')
-
-        if title and content:
-            new_id = len(blog_posts) + 1
-            blog_posts.append({
-                'id': new_id,
-                'title': title,
-                'date': date,
-                'summary': content[:100] + '...',  # First 100 characters as summary
-                'content': content
-            })
-            return render_template('success.html', message='Blog post added successfully!', config=SITE_CONFIG)
-        else:
-            return render_template('error.html', message='Please provide both title and content.', config=SITE_CONFIG)
-
-    return render_template('add_post.html', config=SITE_CONFIG)
+    abort(404)
 
 if __name__ == '__main__':
     app.run(host=os.getenv('HOST', '127.0.0.1'),
