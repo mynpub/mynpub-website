@@ -1,0 +1,38 @@
+{% macro node_link(pubkey, graph) -%}
+<a href="{{ url_for('lightning_node', pubkey=pubkey) }}">{{ graph.nodes[pubkey].alias or 'Unnamed node' }}<br><code>{{ pubkey }}</code></a>
+{%- endmacro %}
+
+{% macro policies(channel, graph) %}
+{% for policy in channel.policies.values() %}
+<div class="channel-policy">
+    <strong>{{ graph.nodes[policy.source].alias or policy.source }}</strong> → {{ graph.nodes[policy.destination].alias or policy.destination }}:
+    base fee {{ policy.base_fee if policy.base_fee is not none else 'Unknown' }} msat;
+    fee {{ policy.fee_ppm if policy.fee_ppm is not none else 'Unknown' }} ppm;
+    CLTV delta {{ policy.cltv_delta if policy.cltv_delta is not none else 'Unknown' }} blocks.
+    Last policy update: {{ policy.last_update or 'Unknown' }}
+</div>
+{% endfor %}
+{% if channel.policies | length < 2 %}<p>Reverse-direction policy unavailable.</p>{% endif %}
+{% endmacro %}
+
+{% macro channel_table(rows, graph) %}
+<div class="explorer-table"><table>
+    <thead><tr><th>Short channel ID</th><th>Endpoints</th><th>Capacity (sat)</th><th>Directional fee / policy snapshot</th></tr></thead>
+    <tbody>{% for channel in rows %}
+    <tr>
+        <td><a href="{{ url_for('lightning_channel', short_channel_id=channel.scid) }}">{{ channel.scid }}</a></td>
+        <td>{% for key in channel.endpoints %}{{ node_link(key, graph) }}{% if not loop.last %}<hr>{% endif %}{% endfor %}</td>
+        <td>{{ channel.capacity if channel.capacity is not none else 'Unknown' }}</td>
+        <td>{{ policies(channel, graph) }}</td>
+    </tr>
+    {% else %}<tr><td colspan="4">No channels found.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endmacro %}
+
+{% macro pagination_links(pagination, endpoint) %}
+<nav class="pagination" aria-label="Explorer pagination">
+    {% if pagination.page > 1 %}<a href="{{ url_for(endpoint, page=pagination.page - 1, per_page=pagination.per_page, **kwargs) }}" rel="prev">Previous</a>{% endif %}
+    <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+    {% if pagination.page < pagination.pages %}<a href="{{ url_for(endpoint, page=pagination.page + 1, per_page=pagination.per_page, **kwargs) }}" rel="next">Next</a>{% endif %}
+</nav>
+{% endmacro %}

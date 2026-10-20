@@ -14,6 +14,10 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from flask import Flask
+from test_lightning import (
+    test_lightning_parsing, test_lightning_cache, test_lightning_concurrency,
+    test_lightning_routes, test_lightning_pagination,
+)
 
 # Add the project directory to Python path
 sys.path.insert(0, '/home/andrew/Documents/mynpub-website')
@@ -379,6 +383,10 @@ if __name__ == '__main__':
     print()
     success &= test_publish_script()
     print()
+    for check in (test_lightning_parsing, test_lightning_cache, test_lightning_concurrency,
+                  test_lightning_routes, test_lightning_pagination):
+        success &= check()
+        print()
     
     if success:
         print("✓ All tests passed! The Flask application is working correctly.")

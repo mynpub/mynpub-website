@@ -1,0 +1,21 @@
+{% extends "lightning.html" %}
+{% from "lightning_tables.html" import channel_table, pagination_links %}
+
+{% block explorer_content %}
+{% if node %}
+<section class="explorer-info">
+    <h3>Node: {{ node.alias or 'Unnamed node' }}</h3>
+    <p>Public key: <code>{{ node.pubkey }}</code></p>
+    <p>Last announcement (UTC): {{ node.last_update or 'Unknown' }}</p>
+    <h4>Advertised addresses</h4>
+    <ul>{% for address in node.addresses %}
+        <li>{{ address.type }}: <code>{{ address.address }}{% if address.port is not none %}:{{ address.port }}{% endif %}</code></li>
+    {% else %}<li>No advertised addresses available.</li>{% endfor %}</ul>
+</section>
+<h3>Public channels ({{ pagination.total }})</h3>
+{{ channel_table(rows, state.snapshot) }}
+{{ pagination_links(pagination, 'lightning_node', pubkey=node.pubkey) }}
+{% elif state.snapshot is not none %}
+<p>Node not found in the current graph snapshot.</p>
+{% endif %}
+{% endblock %}

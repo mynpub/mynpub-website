@@ -219,6 +219,67 @@ main {
     display: inline-block;
 }
 
+.lightning-explorer code,
+.channel-policy {
+    overflow-wrap: anywhere;
+}
+
+.network-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+}
+
+.network-stats dt {
+    font-weight: bold;
+}
+
+.explorer-search {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.explorer-search label {
+    flex-basis: 100%;
+}
+
+.explorer-search input {
+    flex: 1;
+    min-width: 0;
+}
+
+.explorer-search input,
+.explorer-search button {
+    padding: 10px;
+    font: inherit;
+}
+
+.explorer-table {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.explorer-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.explorer-table th,
+.explorer-table td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+    min-width: 130px;
+}
+
+.explorer-table code {
+    display: inline-block;
+    max-width: 220px;
+}
+
 /* Resources styling */
 .resources-page {
     margin-bottom: 45px;
