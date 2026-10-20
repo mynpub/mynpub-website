@@ -198,6 +198,58 @@ set `POSTS_SOURCE`, `POSTS_HOST`, `POSTS_REMOTE_DIR`, and `POSTS_SSH`
 `./scripts/publish_posts.sh --help` for defaults and usage. Errors, including
 SSH/rsync failures, produce a nonzero exit status.
 
+### Create a local publishing shortcut
+
+After configuring SSH access and verifying the publishing command above,
+create a wrapper on your desktop, outside the repository:
+
+```bash
+nano ~/publish-blog.sh
+```
+
+Paste this script:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec bash "$HOME/Documents/mynpub-website/scripts/publish_posts.sh" \
+  --source "$HOME/Blog/published" \
+  --host "publisher@100.100.100.100" \
+  --remote-dir "/srv/mynpub-content/posts" \
+  "$@"
+```
+
+Change the repository path on the `exec bash` line to your local checkout.
+Set `--source` to your local folder of ready-to-publish Markdown files,
+`--host` to your authorized SSH account and confirmed Tailscale IP or
+MagicDNS hostname, and `--remote-dir` to your existing server posts folder
+(the production `POSTS_DIR`). The host above is only an example. Keep paths
+quoted; use `$HOME` or absolute paths rather than `~` inside quotes.
+
+Save with **Ctrl+O**, **Enter**, then exit with **Ctrl+X**. Make it executable:
+
+```bash
+chmod +x ~/publish-blog.sh
+```
+
+From any directory, preview without uploading:
+
+```bash
+~/publish-blog.sh --dry-run
+```
+
+Review the output, then publish:
+
+```bash
+~/publish-blog.sh
+```
+
+`"$@"` forwards extra arguments, such as `--dry-run`, to the repository
+script. This shortcut keeps the same add-only behavior: existing remote
+filenames are skipped even when edited locally, and remote files are never
+deleted. Use the correction procedure below for intentional updates.
+
 ### Add-only behavior and corrections
 
 The script uses rsync over SSH with `--ignore-existing`, markdown-only
