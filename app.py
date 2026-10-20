@@ -1,8 +1,36 @@
-from flask import Flask, render_template, request
+from flask import Flask, abort, render_template, request
+import hashlib
 import markdown
 import os
+from pathlib import Path
 
 app = Flask(__name__)
+app.config.update(
+    DEBUG=os.getenv('DEBUG', 'false').lower() in ('1', 'true', 'yes', 'on'),
+    COMPRESS_ENABLED=os.getenv('COMPRESS_ENABLED', 'true').lower() in ('1', 'true', 'yes', 'on'),
+)
+
+if app.config['COMPRESS_ENABLED']:
+    from flask_compress import Compress
+    Compress(app)
+
+STATIC_VERSION = hashlib.sha256(
+    (Path(app.static_folder) / 'style.css').read_bytes()
+).hexdigest()[:16]
+app.jinja_env.globals['static_version'] = STATIC_VERSION
+
+
+@app.after_request
+def cache_static_assets(response):
+    if (request.endpoint == 'static'
+            and request.view_args.get('filename') == 'style.css'
+            and request.args.get('v') == STATIC_VERSION
+            and response.status_code in (200, 304)):
+        response.cache_control.public = True
+        response.cache_control.max_age = 31536000
+        response.cache_control.immutable = True
+        response.cache_control.no_cache = None
+    return response
 
 # Add markdown filter to Jinja2 environment with extensions for better rendering
 def render_markdown(text):
@@ -68,8 +96,23 @@ init_sample_data()
 # Routes
 @app.route('/')
 def home():
+    per_page = 10
+    page = max(1, request.args.get('page', 1, type=int))
+    total = len(blog_posts)
+    pages = max(1, (total + per_page - 1) // per_page)
+    if page > pages:
+        abort(404)
+    start = (page - 1) * per_page
     return render_template('index.html',
-                         posts=blog_posts,
+                         posts=blog_posts[start:start + per_page],
+                         pagination={
+                             'page': page,
+                             'pages': pages,
+                             'total': total,
+                             'per_page': per_page,
+                             'has_prev': page > 1,
+                             'has_next': page < pages,
+                         },
                          config=SITE_CONFIG)
 
 @app.route('/post/<int:post_id>')
@@ -114,4 +157,5 @@ def add_post():
     return render_template('add_post.html', config=SITE_CONFIG)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(host=os.getenv('HOST', '127.0.0.1'),
+            port=int(os.getenv('PORT', '5001')))

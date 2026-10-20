@@ -18,7 +18,7 @@ This is a Flask-based personal website with the following features:
 
 ## Installation
 
-1. Install Python 3.x if you haven't already
+1. Install Python 3.10 or newer if you haven't already
 2. Navigate to the project directory:
    ```bash
    cd /home/andrew/Documents/mynpub-website
@@ -40,7 +40,42 @@ This is a Flask-based personal website with the following features:
    ```bash
    python app.py
    ```
-3. Visit `http://localhost:5000` in your browser
+3. Visit `http://localhost:5001` in your browser
+
+The development server defaults to `127.0.0.1:5001` with debug disabled.
+Set `DEBUG=true` for local debugging, and use `HOST` and `PORT` to override
+the bind address. Do not enable debug on a public server.
+
+### Production
+
+Run the WSGI app with Gunicorn behind a reverse proxy providing HTTPS:
+
+```bash
+gunicorn --bind "${HOST:-127.0.0.1}:${PORT:-5001}" app:app
+```
+
+Compression is enabled by default; set `COMPRESS_ENABLED=false` to disable
+it when your proxy handles compression. CSS URLs include a content hash
+computed at startup. Matching versioned CSS responses are cached publicly
+for one year with `immutable`; unversioned or stale-version requests retain
+Flask's default revalidation behavior. Restart the app after changing CSS
+and configure the proxy to preserve query strings and cache headers.
+
+The homepage displays 10 posts per page, with Previous/Next navigation
+and `?page=2` URLs. Invalid or nonpositive page values use page 1;
+pages beyond the last page return 404.
+
+This remains a demo with in-memory storage: changes disappear on restart
+and are not shared between workers. The `/admin/add-post` endpoint has no
+authentication or CSRF protection; restrict access at the reverse proxy
+and add authentication, CSRF protection, and content sanitization before
+exposing it publicly.
+
+### Tests
+
+```bash
+python test_app.py
+```
 
 ## Adding New Pages
 
